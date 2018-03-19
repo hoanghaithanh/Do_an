@@ -25,7 +25,7 @@ def parse_args():
                         help='Number of epochs.')
     parser.add_argument('--batch_size', type=int, default=256,
                         help='Batch size.')
-    parser.add_argument('--layers', nargs='?', default='[64,32,16,8]',
+    parser.add_argument('--layers', nargs='?', default='[96,48,24,12]',
                         help="Size of each layer. Note that the first layer is the concatenation of user and item embeddings. So layers[0]/2 is the embedding size.")
     parser.add_argument('--reg_layers', nargs='?', default='[0,0,0,0]',
                         help="Regularization for each layer")
@@ -50,18 +50,20 @@ def get_model(num_users, num_items, layers = [20,10], reg_layers=[0,0]):
     # Input variables
     user_input = tf.keras.layers.Input(shape=(1,), dtype='int32', name = 'user_input')
     item_input = tf.keras.layers.Input(shape=(1,), dtype='int32', name = 'item_input')
+    feature_input = tf.keras.layers.Input(shape=(19,), dtype='float32', name = 'feature')
 
-    MLP_Embedding_User = tf.keras.layers.Embedding(input_dim = num_users, output_dim = layers[0]/2, name = 'user_embedding',
+    MLP_Embedding_User = tf.keras.layers.Embedding(input_dim = num_users, output_dim = layers[0]/3, name = 'user_embedding',
                                   embeddings_initializer = init_normal, embeddings_regularizer = tf.keras.regularizers.l2(reg_layers[0]), input_length=1)
-    MLP_Embedding_Item = tf.keras.layers.Embedding(input_dim = num_items, output_dim = layers[0]/2, name = 'item_embedding',
+    MLP_Embedding_Item = tf.keras.layers.Embedding(input_dim = num_items, output_dim = layers[0]/3, name = 'item_embedding',
                                   embeddings_initializer = init_normal, embeddings_regularizer = tf.keras.regularizers.l2(reg_layers[0]), input_length=1)   
-    
+    MLP_Dense_Feature = tf.keras.layers.Dense(units=layers[0]/3, kernel_regularizer=tf.keras.regularizers.l2(reg_layers[0]), input_shape=(19,))
     # Crucial to flatten an embedding vector!
     user_latent = tf.keras.layers.Flatten()(MLP_Embedding_User(user_input))
     item_latent = tf.keras.layers.Flatten()(MLP_Embedding_Item(item_input))
+    feature = tf.keras.layers.Flatten()(MLP_Dense_Feature(feature_input))
     
     # The 0-th layer is the concatenation of embedding layers
-    vector = tf.keras.layers.Concatenate()([user_latent, item_latent])
+    vector = tf.keras.layers.Concatenate()([user_latent, item_latent, feature])
     
     # MLP layers
     for idx in range(1, num_layer):
@@ -71,28 +73,30 @@ def get_model(num_users, num_items, layers = [20,10], reg_layers=[0,0]):
     # Final prediction layer
     prediction = tf.keras.layers.Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name = 'prediction')(vector)
     
-    model = tf.keras.models.Model(inputs=[user_input, item_input], 
+    model = tf.keras.models.Model(inputs=[feature_input, user_input, item_input], 
                   outputs=prediction)
     
     return model
 
-def get_train_instances(train, num_negatives):
-    user_input, item_input, labels = [],[],[]
+def get_train_instances(train, num_negatives, feature_arr):
+    feature_input, user_input, item_input, labels = [],[],[],[]
     num_users = train.shape[0]
     for (u, i) in train.keys():
         # positive instance
         user_input.append(u)
         item_input.append(i)
+        feature_input.append(feature_arr[u])
         labels.append(1)
-        # negative instances
+        # negative instancesd
         for t in range(num_negatives):
             j = np.random.randint(num_items)
             while (u, j) in train:
                 j = np.random.randint(num_items)
+            feature_input.append(feature_arr[u])
             user_input.append(u)
             item_input.append(j)
             labels.append(0)
-    return user_input, item_input, labels
+    return feature_input, user_input, item_input, labels
 
 if __name__ == '__main__':
     args = parse_args()
@@ -115,7 +119,7 @@ if __name__ == '__main__':
     # Loading data
     t1 = time()
     dataset = Dataset(args.path + args.dataset)
-    train, testRatings, testNegatives = dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
+    feature_arr, train, testRatings, testNegatives = dataset.feature_arr, dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
     num_users, num_items = train.shape
     print("Load data done [%.1f s]. #user=%d, #item=%d, #train=%d, #test=%d" 
           %(time()-t1, num_users, num_items, train.nnz, len(testRatings)))
@@ -133,7 +137,7 @@ if __name__ == '__main__':
     tensorboard = tf.keras.callbacks.TensorBoard(log_dir="logs/{}".format(time()))
     # Check Init performance
     t1 = time()
-    (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, topK, evaluation_threads)
+    (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, feature_arr, topK, evaluation_threads)
     hr, ndcg = np.array(hits).mean(), np.array(ndcgs).mean()
     print('Init: HR = %.4f, NDCG = %.4f [%.1f]' %(hr, ndcg, time()-t1))
     
@@ -142,17 +146,17 @@ if __name__ == '__main__':
     for epoch in range(epochs):
         t1 = time()
         # Generate training instances
-        user_input, item_input, labels = get_train_instances(train, num_negatives)
+        feature_input, user_input, item_input, labels = get_train_instances(train, num_negatives, feature_arr)
     
         # Training        
-        hist = model.fit([np.array(user_input), np.array(item_input)], #input
+        hist = model.fit([np.array(feature_input), np.array(user_input), np.array(item_input)], #input
                          np.array(labels), # labels 
                          batch_size=batch_size, epochs=1, verbose=0, shuffle=True, callbacks=[tensorboard])
         t2 = time()
 
         # Evaluation
         if epoch %verbose == 0:
-            (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, topK, evaluation_threads)
+            (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, feature_arr, topK, evaluation_threads)
             hr, ndcg, loss = np.array(hits).mean(), np.array(ndcgs).mean(), hist.history['loss'][0]
             print('Iteration %d [%.1f s]: HR = %.4f, NDCG = %.4f, loss = %.4f [%.1f s]' 
                   % (epoch,  t2-t1, hr, ndcg, loss, time()-t2))

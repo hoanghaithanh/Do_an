@@ -23,10 +23,10 @@ class Dataset(object):
         assert len(self.testRatings) == len(self.testNegatives)
         
         self.num_users, self.num_items = self.trainMatrix.shape
-        self.user_arr = self.load_user_input_as_array(path+".user.ident")
+        self.feature_arr = self.load_user_input_as_array(path+".user.ident")
 
     def load_user_input_as_array(self, filename):
-        user_arr = np.zeros(shape=(self.num_users,19),dtype=np.float64)
+        user_arr = np.zeros(shape=(self.num_users,19),dtype=np.float32)
         fin = open(filename, "r")
         for line in fin:
             tokens = line.split()

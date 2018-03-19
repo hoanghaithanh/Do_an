@@ -8,7 +8,7 @@ import sys
 from time import time
 def parse_args():
 	parser = argparse.ArgumentParser(description="Run GMF.")
-	parser.add_argument('--path', nargs='?', default='Data/',
+	parser.add_argument('--path', nargs='?', default='../Data/',
 						help='Input data path.')
 	parser.add_argument('--dataset', nargs='?', default='ml-1m',
 						help='Choose a dataset.')
@@ -45,13 +45,13 @@ def getNDCG(ranklist, gtItem):
 			return math.log(2) / math.log(i+2)
 	return 0
 
-def get_train_instances(train, num_negatives, user_arr):
-	user_input, user_feature, item_input, labels = [],[],[],[]
+def get_train_instances(train, num_negatives, feature_arr):
+	feature_input, user_input, item_input, labels = [],[],[],[]
 	num_users = train.shape[0]
 	for (u, i) in train.keys():
 		# positive instance
 		user_input.append(u)
-		user_feature.append(user_arr[u])
+		feature_input.append(user_arr[u])
 		item_input.append(i)
 		labels.append(1)
 		# negative instances
@@ -60,10 +60,10 @@ def get_train_instances(train, num_negatives, user_arr):
 			while ((u, j) in train):
 				j = np.random.randint(num_items)
 			user_input.append(u)
-			user_feature.append(user_arr[u])
+			feature_input.append(user_arr[u])
 			item_input.append(j)
 			labels.append(0)
-	return user_input, user_feature, item_input, labels
+	return feature_input, user_input, item_input, labels
 
 args = parse_args()
 num_factors = args.num_factors
@@ -75,7 +75,7 @@ batch_size = args.batch_size
 verbose = args.verbose
 t1 = time()
 dataset = Dataset(args.path + args.dataset)
-user_arr, train, testRatings, testNegatives = dataset.user_arr, dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
+feature_arr, train, testRatings, testNegatives = dataset.feature_arr, dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
 num_users, num_items = train.shape
 fout = open(str(time()),"w")
 line = "GMF arguments: {} ".format(args)

@@ -8,7 +8,7 @@ import sys
 from time import time
 def parse_args():
     parser = argparse.ArgumentParser(description="Run MLP.")
-    parser.add_argument('--path', nargs='?', default='Data/',
+    parser.add_argument('--path', nargs='?', default='../Data/',
                         help='Input data path.')
     parser.add_argument('--dataset', nargs='?', default='ml-1m',
                         help='Choose a dataset.')
@@ -94,7 +94,7 @@ item_input = tf.placeholder(tf.int32, shape=(None,1), name="item_input_layer")
 
 user_dense = tf.layers.Dense(units=layers[0]/2, name="user_dense")(user_input)
 
-item_input_variable = tf.Variable(tf.random_normal([num_items, int(layers[0]/2)], stddev = 0.001))
+item_input_variable = tf.Variable(tf.random_normal([num_items, int(layers[0]/2)], stddev = 0.01))
 item_embeded = tf.nn.embedding_lookup(item_input_variable, item_input)
 
 vector = tf.concat([tf.layers.flatten(user_dense), tf.layers.flatten(item_embeded)],1)
