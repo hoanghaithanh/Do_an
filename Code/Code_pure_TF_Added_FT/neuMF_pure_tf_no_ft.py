@@ -8,7 +8,7 @@ import sys
 from time import time
 def parse_args():
 	parser = argparse.ArgumentParser(description="Run NeuMF.")
-	parser.add_argument('--path', nargs='?', default='../Data/',
+	parser.add_argument('--path', nargs='?', default='../../Data/ml-20m/',
 						help='Input data path.')
 	parser.add_argument('--dataset', nargs='?', default='ml-1m',
 						help='Choose a dataset.')
@@ -86,7 +86,7 @@ t1 = time()
 dataset = Dataset(args.path + args.dataset)
 train, testRatings, testNegatives = dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
 num_users, num_items = train.shape
-fout = open("../../Result_log/NEUMF_UnEnhanced_{:02d}node_{:02d}fac_{:02d}neg_{}".format(layers[0],mf_dim,num_negatives,str(time())),"w")
+fout = open("../../Result_log/NEUMF_pure_tf_UnEnhanced_{:02d}node_{:02d}fac_{:02d}neg_{}topK_{}".format(layers[0],mf_dim,num_negatives,k,str(time())),"w")
 line = "NEUMF arguments: {} ".format(args)
 print(line)
 fout.write(line+'\n')
@@ -162,7 +162,7 @@ for epoch in range(num_epochs):
 		items.append(gtItem)
 		# Get prediction scores
 		map_item_score = {}
-		user_id = np.full((len(items)),rating[0],dtype='int32')
+		user_id = np.full((len(items)),u,dtype='int32')
 		predict = sess.run(prediction,feed_dict={user_input: np.array(user_id).reshape(-1,1), item_input: np.array(items).reshape(-1,1)})
 		for i in range(len(items)):
 			item = items[i]

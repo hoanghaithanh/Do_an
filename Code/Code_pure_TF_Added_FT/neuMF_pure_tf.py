@@ -50,13 +50,13 @@ def getNDCG(ranklist, gtItem):
 	return 0
 
 def get_train_instances(train, num_negatives, feature_arr):
-	feature_input, user_input, item_input_arrput, labels = [],[],[],[]
+	feature_input, user_input, item_input, labels = [],[],[],[]
 	num_users = train.shape[0]
 	for (u, i) in train.keys():
 		# positive instance
 		user_input.append(u)
 		feature_input.append(feature_arr[u])
-		item_input_arrput.append(i)
+		item_input.append(i)
 		labels.append(1)
 		# negative instances
 		for t in range(num_negatives):
@@ -65,9 +65,9 @@ def get_train_instances(train, num_negatives, feature_arr):
 				j = np.random.randint(num_items)
 			user_input.append(u)
 			feature_input.append(feature_arr[u])
-			item_input_arrput.append(j)
+			item_input.append(j)
 			labels.append(0)
-	return feature_input, user_input, item_input_arrput, labels
+	return feature_input, user_input, item_input, labels
 
 args = parse_args()
 num_epochs = args.epochs
@@ -99,13 +99,13 @@ fout.write(line+'\n')
 
 feature_input = tf.placeholder(tf.float32, shape=(None,19),name="feature_input_layer")
 user_input = tf.placeholder(tf.int32, shape=(None,1), name="user_input_layer")
-item_input_arrput = tf.placeholder(tf.int32, shape=(None,1), name="item_input_arrput_layer")
+item_input = tf.placeholder(tf.int32, shape=(None,1), name="item_input_layer")
 
 
 MF_user_input_variable = tf.Variable(tf.random_normal([num_users, mf_dim], stddev = 0.01))
 MF_user_embeded = tf.nn.embedding_lookup(MF_user_input_variable, user_input)
-MF_item_input_arrput_variable = tf.Variable(tf.random_normal([num_items, mf_dim], stddev = 0.01))
-MF_item_embeded = tf.nn.embedding_lookup(MF_item_input_arrput_variable, item_input_arrput)
+MF_item_input_variable = tf.Variable(tf.random_normal([num_items, mf_dim], stddev = 0.01))
+MF_item_embeded = tf.nn.embedding_lookup(MF_item_input_variable, item_input)
 
 
 MF_predict_vector = tf.multiply(tf.layers.flatten(MF_user_embeded), tf.layers.flatten(MF_item_embeded))
@@ -115,8 +115,8 @@ MLP_feature_dense = tf.layers.Dense(units=layers[0]/3, name="user_dense")(featur
 
 MLP_user_input_variable = tf.Variable(tf.random_normal([num_users, int(layers[0]/3)], stddev = 0.01))
 MLP_user_embeded = tf.nn.embedding_lookup(MLP_user_input_variable, user_input)
-MLP_item_input_arrput_variable = tf.Variable(tf.random_normal([num_items, int(layers[0]/3)], stddev = 0.01))
-MLP_item_embeded = tf.nn.embedding_lookup(MLP_item_input_arrput_variable, item_input_arrput)
+MLP_item_input_variable = tf.Variable(tf.random_normal([num_items, int(layers[0]/3)], stddev = 0.01))
+MLP_item_embeded = tf.nn.embedding_lookup(MLP_item_input_variable, item_input)
 
 MLP_predict_vector = tf.concat([tf.layers.flatten(MLP_user_embeded), tf.layers.flatten(MLP_item_embeded), tf.layers.flatten(MLP_feature_dense)], 1)
 
@@ -153,7 +153,7 @@ for epoch in range(num_epochs):
 		item_batch = item_input_arr[batch*batch_size:min((batch+1)*batch_size,len(item_input_arr))]
 		label_batch = label_input_arr[batch*batch_size:min((batch+1)*batch_size,len(label_input_arr))]
 
-		sess.run(train_step, feed_dict={user_input: user_input_batch, feature_input: np.array(feature_batch), item_input_arrput: item_batch, label: label_batch})
+		sess.run(train_step, feed_dict={user_input: user_input_batch, feature_input: np.array(feature_batch), item_input: item_batch, label: label_batch})
 	t2 = time()
 	hits, ndcgs = [],[]
 	for idx in range(len(testRatings)):
@@ -166,7 +166,7 @@ for epoch in range(num_epochs):
 		map_item_score = {}
 		features = np.full((len(items),19), feature_arr[u], dtype = 'float32')
 		user_id = np.full((len(items)),rating[0],dtype='int32')
-		predict = sess.run(prediction,feed_dict={user_input: np.array(user_id).reshape(-1,1), feature_input: features, item_input_arrput: np.array(items).reshape(-1,1)})
+		predict = sess.run(prediction,feed_dict={user_input: np.array(user_id).reshape(-1,1), feature_input: features, item_input: np.array(items).reshape(-1,1)})
 		for i in range(len(items)):
 			item = items[i]
 			map_item_score[item] = predict[i]
