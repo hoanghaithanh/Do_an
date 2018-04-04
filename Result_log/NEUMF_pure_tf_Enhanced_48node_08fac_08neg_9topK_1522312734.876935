@@ -1,0 +1,2 @@
+NEUMF arguments: Namespace(batch_size=256, dataset='exp_ml-20m_1', epochs=10, layers='[48,24,12,6]', learner='adam', lr=0.001, num_factors=8, num_neg=8, path='../../Data/exp_ml-20m_1/', reg_layers='[0,0,0,0]', reg_mf=0, top_Number=9, verbose=1) 
+Load data done [10.1 s]. #user=10000, #item=26628, #train=1426401, #test=40000
