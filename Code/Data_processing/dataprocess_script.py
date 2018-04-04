@@ -1,30 +1,24 @@
-#This file is to simplify rating.csv file
+#This file is to generate exp_ml-20m.train.rating and test file
 
-#for movielens is an explicit database while we
-#only work with implicit data, we have to "downgrade"
-#it, also simplify it
-#Each line in rating_simplified.csv contains 2 int
-#One for the user_id and one for the movie_id
-
-fout = open("ratings_simplified.csv", "w")
-fout2 = open("ml-20m.test.rating",'w')
-with open('ratings.csv','r') as fin:
-	fin.readline()
+fout = open("../../Data/exp_ml-20m-full/exp_ml-20m.train.rating", "w")
+fout2 = open("../../Data/exp_ml-20m-full/exp_ml-20m.test.rating",'w')
+with open('../../Data/ml-20m_Original/ratings.csv','r') as fin:
+	
 	lastitem = ['0','0','0','0']
-	for line in fin:
-		format='{0} {1}\n'
-		words = line.split(',')
+	o_line = '{0} {1} {2} {3}'
+	for i_line in fin:
+		words = i_line.split(',')
 		if(words[0]!=lastitem[0]):
-			out_line = format.format(lastitem[0],lastitem[1])
+			out_line = o_line.format(int(lastitem[0]), lastitem[1], lastitem[2], lastitem[3])
 			fout2.write(out_line)
 			lastitem=words
 		else:
 			if(int(lastitem[3])<int(words[3])):
-				out_line = format.format(lastitem[0],lastitem[1])
+				out_line = o_line.format(int(lastitem[0]), lastitem[1], lastitem[2], lastitem[3])
 				lastitem = words
 			else:
-				out_line = format.format(words[0],words[1])
-			fout.write(out_line)
+				out_line = o_line.format(int(words[0]), words[1], words[2], words[3])
+	fout2.write(o_line.format(int(lastitem[0]), lastitem[1], lastitem[2], lastitem[3]))
 fout.close()
 fin.close()
 
