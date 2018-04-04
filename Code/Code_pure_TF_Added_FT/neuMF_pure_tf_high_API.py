@@ -49,6 +49,8 @@ def get_neuMF_model(features, labels, mode, params):
 	learner = params['learner']
 	num_layer = len(layers)
 	top_Number = params['top_Number']
+	num_test_neg = params['num_test_neg']
+
 	#Input layers
 	user_input = features['user_input']
 	item_input = features['item_input']
@@ -138,7 +140,6 @@ def get_label(rating):
 	return label
 
 def get_train_instances(train, feature_arr, num_train_neg):
-	
 	feature_input, user_input, item_input, labels = [],[],[],[]
 	num_users = train.shape[0]
 	num_items = train.shape[1]
@@ -163,17 +164,28 @@ def get_train_instances(train, feature_arr, num_train_neg):
 
 	return feature_arr, user_arr, item_arr, labels_arr
 
-def get_test_negative_instances(train, u, gtItem, numofneg=1000):
-	negative_list = []
-	labels_list = []
-	num_items = train.shape[1]
-	for t in range(numofneg):
-		j = np.random.randint(num_items)
-		while(((u,j) in train.keys()) or (j == gtItem)):
+def get_test_negative_instances(train, test, feature_arr, num_test_neg):
+	feature_input, user_input, item_input, labels = [],[],[],[]
+	for entry in test:
+		u = test[0]
+		i = test[1]
+		user_input.append(u)
+		feature_input.append(feature_arr[u])
+		item_input.append(i)
+		labels.append(1.0)
+		for k in range(num_test_neg):
 			j = np.random.randint(num_items)
-		negative_list.append(j)
-		labels_list.append(0)
-	return negative_list, labels_list
+			while (u,j) in train.keys():
+				j = np.random.randint(num_items)
+			user_input.append(u)
+			item_input.append(j)
+			labels.append(0)
+			feature_input.append(feature_arr[u])
+	feature_arr = np.array(feature_input).reshape(-1,19).astype('float32')
+	user_arr = np.array(user_input).reshape(-1,1)
+	item_arr = np.array(item_input).reshape(-1,1)
+	labels_arr = np.array(labels).reshape(-1,1).astype('float32')
+	return feature_arr, user_arr, item_arr, labels_arr
 
 def main(unused_argv):
 	args = parse_args()
@@ -199,7 +211,8 @@ def main(unused_argv):
 	'reg_layers' : reg_layers,
 	'learning_rate' : learning_rate,
 	'learner' : learner,
-	'top_Number': args.top_Number
+	'top_Number': args.top_Number,
+	'num_test_neg': num_test_neg
 	}
 	
 	model = str(time())
@@ -236,32 +249,20 @@ def main(unused_argv):
 	# Evaluate the model and print results
 	loss, recall, precision = [], [], []
 
-	for idx in range(len(testRatings)):
+	feature_eval, user_eval, item_eval, labels_eval = get_train_instances(train, feature_arr, num_train_neg)
+	eval_input_fn = tf.estimator.inputs.numpy_input_fn(
+		x={
+		"user_input": user_eval,
+		"item_input": item_eval,
+		"feature_input": feature_eval
+		},
+		y=labels_eval,
+		batch_size=num_test_neg+1,
+		num_epochs=1,
+		shuffle=False)
+	eval_results = exp_neuMF_model.evaluate(input_fn=eval_input_fn)
 
-		rating = testRatings[idx]
-		u = rating[0]
-		gtItem = rating[1]
-		item_eval, labels_eval = get_test_negative_instances(train, u, gtItem)
-		item_eval.append(gtItem)
-		labels_eval.append(1)
-		feature_eval = np.full((len(item_eval),19), feature_arr[u], dtype = 'float32')
-		user_eval = np.full((len(item_eval)),rating[0],dtype='int32')
-
-		eval_input_fn = tf.estimator.inputs.numpy_input_fn(
-		  x={
-		  "user_input": np.array(user_eval).reshape(-1,1),
-		  "item_input": np.array(item_eval).reshape(-1,1),
-		  "feature_input": np.array(feature_eval).reshape(-1,19)
-		  },
-		  y=np.array(labels_eval).reshape(-1,1),
-		  num_epochs=1,
-		  shuffle=False)
-		eval_results = exp_neuMF_model.evaluate(input_fn=eval_input_fn)
-		loss.append(eval_results['loss'])
-		recall.append(eval_results['recall'])
-		precision.append(eval_results['precision'])
-	loss_mean, recall_mean, precision_mean = np.array(loss).mean(), np.array(recall).mean(), np.array(precision).mean()
-	print([loss_mean, recall_mean, precision_mean])
+	print(eval_results)
 
 if __name__ == "__main__":
 	tf.app.run()
