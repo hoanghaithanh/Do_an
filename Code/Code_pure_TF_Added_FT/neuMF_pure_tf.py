@@ -10,7 +10,7 @@ def parse_args():
 	parser = argparse.ArgumentParser(description="Run NeuMF.")
 	parser.add_argument('--path', nargs='?', default='../../Data/ml-20m/',
 						help='Input data path.')
-	parser.add_argument('--dataset', nargs='?', default='ml-2m',
+	parser.add_argument('--dataset', nargs='?', default='ml-20m',
 						help='Choose a dataset.')
 	parser.add_argument('--epochs', type=int, default=100,
 						help='Number of epochs.')
@@ -34,6 +34,8 @@ def parse_args():
 						help='Show performance per X iterations')
 	parser.add_argument('--top_Number', type=int, default=10,
 						help='Top K number')
+	parser.add_argument('--numofneg', type=int, default=1000,
+						help='Test list length')
 	return parser.parse_args()
 
 def getHitRatio(ranklist, gtItem):
@@ -51,7 +53,6 @@ def getNDCG(ranklist, gtItem):
 
 def get_train_instances(train, num_negatives, feature_arr):
 	feature_input, user_input, item_input, labels = [],[],[],[]
-	num_users = train.shape[0]
 	for (u, i) in train.keys():
 		# positive instance
 		user_input.append(u)
@@ -61,13 +62,22 @@ def get_train_instances(train, num_negatives, feature_arr):
 		# negative instances
 		for t in range(num_negatives):
 			j = np.random.randint(num_items)
-			while ((u, j) in train):
+			while ((u, j) in train.keys()):
 				j = np.random.randint(num_items)
 			user_input.append(u)
 			feature_input.append(feature_arr[u])
 			item_input.append(j)
 			labels.append(0)
 	return feature_input, user_input, item_input, labels
+
+def get_test_negative_instances(train, u, numofneg=1000):
+	negative_list = []
+	for t in range(numofneg):
+		j = np.random.randint(num_items)
+		while(((u,j) in train) or (j in negative_list)):
+			j = np.random.randint(num_items)
+		negative_list.append(j)
+	return negative_list
 
 args = parse_args()
 num_epochs = args.epochs
@@ -79,13 +89,13 @@ reg_layers = eval(args.reg_layers)
 num_negatives = args.num_neg
 learning_rate = args.lr
 learner = args.learner
-verbose = args.verbose
+numofneg = args.numofneg
 k = args.top_Number
 num_layer=len(layers)
 t1 = time()
 
 dataset = Dataset(args.path + args.dataset)
-feature_arr, train, testRatings, testNegatives = dataset.feature_arr, dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
+feature_arr, train, testRatings = dataset.feature_arr, dataset.trainMatrix, dataset.testRatings
 num_users, num_items = train.shape
 fout = open("../../Result_log/NEUMF_pure_tf_Enhanced_{:02d}node_{:02d}fac_{:02d}neg_{}topK_{}".format(layers[0], mf_dim, num_negatives, k, str(time())),"w")
 line = "NEUMF arguments: {} ".format(args)
@@ -121,7 +131,7 @@ MLP_item_embeded = tf.nn.embedding_lookup(MLP_item_input_variable, item_input)
 MLP_predict_vector = tf.concat([tf.layers.flatten(MLP_user_embeded), tf.layers.flatten(MLP_item_embeded), tf.layers.flatten(MLP_feature_dense)], 1)
 
 for idx in range(1, num_layer):
-	MLP_layer = tf.layers.Dense(layers[idx], kernel_regularizer= tf.keras.regularizers.l2(reg_layers[idx]), activation=tf.nn.relu, name = 'layer%d' %idx)
+	MLP_layer = tf.layers.Dense(layers[idx], kernel_regularizer= tf.keras.regularizers.l2(reg_layers[idx]), activation=tf.nn.relu, name= 'layer%d' %idx)
 	MLP_predict_vector = MLP_layer(MLP_predict_vector)
 
 NEU_predict_vector = tf.concat([MF_predict_vector,MLP_predict_vector], 1)
@@ -157,10 +167,11 @@ for epoch in range(num_epochs):
 	t2 = time()
 	hits, ndcgs = [],[]
 	for idx in range(len(testRatings)):
+		#TO DO: need to do with each rating
 		rating = testRatings[idx]
-		items = list(testNegatives[idx])
 		u = rating[0]
 		gtItem = rating[1]
+		items = get_test_negative_instances(train, u)
 		items.append(gtItem)
 		# Get prediction scores
 		map_item_score = {}

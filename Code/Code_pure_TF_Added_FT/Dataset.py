@@ -18,9 +18,9 @@ class Dataset(object):
         '''
         self.trainMatrix = self.load_rating_file_as_matrix(path + ".train.rating")
         self.testRatings = self.load_rating_file_as_list(path + ".test.rating")
-        self.testNegatives = self.load_negative_file(path + ".test.negative")
+        # self.testNegatives = self.load_negative_file(path + ".test.negative")
         
-        assert len(self.testRatings) == len(self.testNegatives)
+        # assert len(self.testRatings) == len(self.testNegatives)
         
         self.num_users, self.num_items = self.trainMatrix.shape
         self.feature_arr = self.load_user_input_as_array(path+".user.ident")
@@ -31,7 +31,7 @@ class Dataset(object):
         for line in fin:
             tokens = line.split()
             for k in range(1,20):
-                user_arr[int(tokens[0]),k-1] = tokens[k]
+                user_arr[int(tokens[0]),k-1] = float(tokens[k])
         return user_arr
 
 
@@ -65,7 +65,7 @@ class Dataset(object):
         The first line of .rating file is: num_users\t num_items
         '''
         # Get number of users and items
-        num_users, num_items = 0, 26743
+        num_users, num_items = 0, 0
         with open(filename, "r") as f:
             line = f.readline()
             while line != None and line != "":

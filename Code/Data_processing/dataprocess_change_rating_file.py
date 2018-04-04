@@ -15,5 +15,5 @@ with open("../../Data/exp_ml-20m-full/exp_ml-20m.train.rating") as fin:
 		if item_array[int(tokens[1])-1]==-2:
 			print("something wrong!")
 			break
-		fout.write("{0} {1} {2} {3}\n".format(int(tokens[0]), item_array[int(tokens[1])-1], tokens[2], tokens[3]))
+		fout.write("\n{0} {1} {2} {3}".format(int(tokens[0]), item_array[int(tokens[1])-1], tokens[2], tokens[3]))
 fout.close()
