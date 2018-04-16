@@ -1,4 +1,4 @@
-#Refactor code
+2013#Refactor code
 
 import tensorflow as tf
 import numpy as np
@@ -35,6 +35,8 @@ def parse_args():
 						help='Number of test negatives')
 	parser.add_argument('--top_number', type=int, default=10,
 						help='Top K number')
+	parser.add_argument('--seed', type=int, default=0,
+						help='Random Seed')
 	return parser.parse_args()
 
 
@@ -139,7 +141,8 @@ def get_label(rating):
 	label[int((rating-1)*2)-1] = 1
 	return label
 
-def get_train_instances(train, feature_arr, num_train_neg):
+def get_train_instances(train, feature_arr, num_train_neg, seed):
+	np.random.seed(seed)
 	feature_input, user_input, item_input, labels = [],[],[],[]
 	num_users = train.shape[0]
 	num_items = train.shape[1]
@@ -163,7 +166,8 @@ def get_train_instances(train, feature_arr, num_train_neg):
 
 	return feature_arr, user_arr, item_arr, labels_arr
 
-def get_test_negative_instances(train, test, feature_arr, num_test_neg):
+def get_test_negative_instances(train, test, feature_arr, num_test_neg, seed):
+	np.random.seed(seed)
 	feature_input, user_input, item_input, labels = [],[],[],[]
 	num_items = train.shape[1]
 	for entry in test:
@@ -187,7 +191,8 @@ def get_test_negative_instances(train, test, feature_arr, num_test_neg):
 	labels_arr = np.array(labels).reshape(-1,1).astype('float32')
 	return feature_arr, user_arr, item_arr, labels_arr
 
-def get_test_negative_instances_ver2(train, test, feature_arr, num_test_neg):
+def get_test_negative_instances_ver2(train, test, feature_arr, num_test_neg, seed):
+	np.random.seed(seed)
 	feature_input, user_input, item_input, labels = [],[],[],[]
 	num_items = train.shape[1]
 	current_user = -1
@@ -231,7 +236,7 @@ def main(unused_argv):
 	dataset = Dataset(args.path + args.dataset)
 	feature_arr, train, testRatings = dataset.feature_arr, dataset.trainMatrix, dataset.testRatings
 	num_users, num_items = train.shape
-
+	seed = args.seed
 
 	params = {
 	'num_users' : num_users,
@@ -244,7 +249,6 @@ def main(unused_argv):
 	'top_number': args.top_number,
 	'num_test_neg': num_test_neg
 	}
-	
 	model = "NEUMF_pure_tf_UnEnhanced_{:02d}node_{:02d}fac_{:02d}neg_{}topK_{}".format(layers[0], mf_dim, num_train_neg, num_test_neg, str(time()))
 	# Create the Estimator
 	imp_neuMF_model = tf.estimator.Estimator(
@@ -258,7 +262,7 @@ def main(unused_argv):
 
 	# Train the model
 
-	feature_input, user_input, item_input, labels = get_train_instances(train, feature_arr, num_train_neg)
+	feature_input, user_input, item_input, labels = get_train_instances(train, feature_arr, num_train_neg, seed)
 	train_input_fn = tf.estimator.inputs.numpy_input_fn(
 	  x={
 	  "user_input": user_input,
@@ -270,27 +274,17 @@ def main(unused_argv):
 	  num_epochs=num_epochs,
 	  shuffle=True)
 	t1 = time()
-	exp_neuMF_model.train(
+	imp_neuMF_model.train(
 	  input_fn=train_input_fn,
 	  hooks=[logging_hook])
 
 	print("Finished training model in {:.2f} second".format(time()-t1))
 
-	pre_fn = tf.estimator.inputs.numpy_input_fn(
-	  x={
-	  "user_input": np.array([2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3]),
-	  "item_input": np.array([0,1,2,3,4,5,6,7,0,1,2,3,4,5,6,7]),
-	  "feature_input": np.array([np.zeros(19)]*16).astype('float32')
-	  },
-	  y=np.array(np.zeros(16)),
-	  num_epochs=1,
-	  shuffle=False)
-	eval_results = exp_neuMF_model.predict(input_fn=pre_fn)
-	print(list(eval_results))
 	# Evaluate the model and print results
 	loss, recall, precision = [], [], []
 
-	feature_eval, user_eval, item_eval, labels_eval = get_test_negative_instances(train,testRatings, feature_arr, num_test_neg)
+	feature_eval, user_eval, item_eval, labels_eval = get_test_negative_instances_ver2(train,testRatings, feature_arr, num_test_neg, seed)
+	print(item_eval)
 	eval_input_fn = tf.estimator.inputs.numpy_input_fn(
 		x={
 		"user_input": user_eval,
@@ -298,13 +292,13 @@ def main(unused_argv):
 		"feature_input": feature_eval
 		},
 		y=labels_eval,
-		batch_size=num_test_neg+4,
+		batch_size=num_test_neg+1,
 		num_epochs=1,
 		shuffle=False)
 
 	for i in range(num_epochs):
 		t1 = time()
-		feature_input, user_input, item_input, labels = get_train_instances(train, feature_arr, num_train_neg)
+		feature_input, user_input, item_input, labels = get_train_instances(train, feature_arr, num_train_neg, seed)
 		train_input_fn = tf.estimator.inputs.numpy_input_fn(
 			x={
 			"user_input": user_input,
@@ -318,6 +312,7 @@ def main(unused_argv):
 
 		imp_neuMF_model.train(
 			input_fn=train_input_fn,
+		  	steps=40000,
 			hooks=[logging_hook])
 		t2 = time()
 		print("Finished training model epoch {} in {:.2f} second".format(i,t2-t1))
