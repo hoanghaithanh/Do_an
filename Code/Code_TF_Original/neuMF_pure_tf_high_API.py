@@ -141,7 +141,7 @@ def get_label(rating):
 	label[int((rating-1)*2)-1] = 1
 	return label
 
-def get_train_instances(train, num_train_neg, seed):
+def get_train_instances(train, num_train_neg):
 	user_input, item_input, labels = [],[],[]
 	num_users = train.shape[0]
 	num_items = train.shape[1]
@@ -256,7 +256,7 @@ def main(unused_argv):
 	logging_hook = tf.train.LoggingTensorHook(
 	  tensors=tensors_to_log, every_n_iter=50)
 
-	user_eval, item_eval, labels_eval = get_test_negative_instances_ver2(train, testRatings, num_test_neg, seed)
+	user_eval, item_eval, labels_eval = get_test_negative_instances(train, testRatings, num_test_neg, seed)
 	print(item_eval)
 	eval_input_fn = tf.estimator.inputs.numpy_input_fn(
 		x={
@@ -271,7 +271,7 @@ def main(unused_argv):
 	for i in range(num_epochs):
 		t1 = time()
 			# Train the model
-		user_input, item_input, labels = get_train_instances(train, num_train_neg, seed)
+		user_input, item_input, labels = get_train_instances(train, num_train_neg)
 		train_input_fn = tf.estimator.inputs.numpy_input_fn(
 		  x={
 		  "user_input": user_input,
