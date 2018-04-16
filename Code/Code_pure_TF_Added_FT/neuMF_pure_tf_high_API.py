@@ -246,6 +246,17 @@ def main(unused_argv):
 
 	print("Finished training model in {:.2f} second".format(time()-t1))
 
+	pre_fn = tf.estimator.inputs.numpy_input_fn(
+	  x={
+	  "user_input": np.array([2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3]),
+	  "item_input": np.array([0,1,2,3,4,5,6,7,0,1,2,3,4,5,6,7]),
+	  "feature_input": np.array([np.zeros(19)]*16).astype('float32')
+	  },
+	  y=np.array(np.zeros(16)),
+	  num_epochs=1,
+	  shuffle=False)
+	eval_results = exp_neuMF_model.predict(input_fn=pre_fn)
+	print(list(eval_results))
 	# Evaluate the model and print results
 	loss, recall, precision = [], [], []
 
