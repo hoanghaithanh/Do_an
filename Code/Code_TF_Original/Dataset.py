@@ -18,8 +18,8 @@ class Dataset(object):
         '''
         self.trainMatrix = self.load_rating_file_as_matrix(path + ".train.rating")
         self.testRatings = self.load_rating_file_as_list(path + ".test.rating")
-        self.testNegatives = self.load_negative_file(path + ".test.negative")
-        assert len(self.testRatings) == len(self.testNegatives)
+        # self.testNegatives = self.load_negative_file(path + ".test.negative")
+        # assert len(self.testRatings) == len(self.testNegatives)
         
         self.num_users, self.num_items = self.trainMatrix.shape
         
@@ -28,7 +28,7 @@ class Dataset(object):
         with open(filename, "r") as f:
             line = f.readline()
             while line != None and line != "":
-                arr = line.split("\t")
+                arr = line.split()
                 user, item = int(arr[0]), int(arr[1])
                 ratingList.append([user, item])
                 line = f.readline()
@@ -39,7 +39,7 @@ class Dataset(object):
         with open(filename, "r") as f:
             line = f.readline()
             while line != None and line != "":
-                arr = line.split("\t")
+                arr = line.split()
                 negatives = []
                 for x in arr[1: ]:
                     negatives.append(int(x))
@@ -57,7 +57,7 @@ class Dataset(object):
         with open(filename, "r") as f:
             line = f.readline()
             while line != None and line != "":
-                arr = line.split("\t")
+                arr = line.split()
                 u, i = int(arr[0]), int(arr[1])
                 num_users = max(num_users, u)
                 num_items = max(num_items, i)
@@ -67,7 +67,7 @@ class Dataset(object):
         with open(filename, "r") as f:
             line = f.readline()
             while line != None and line != "":
-                arr = line.split("\t")
+                arr = line.split()
                 user, item, rating = int(arr[0]), int(arr[1]), float(arr[2])
                 if (rating > 0):
                     mat[user, item] = 1.0
