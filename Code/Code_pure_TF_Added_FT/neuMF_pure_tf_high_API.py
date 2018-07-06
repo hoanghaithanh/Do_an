@@ -248,10 +248,10 @@ def main(unused_argv):
 	'top_number': args.top_number,
 	'num_test_neg': num_test_neg
 	}
-	model = "NEUMF_pure_tf_UnEnhanced_{:02d}node_{:02d}fac_{:02d}neg_{}topK_{}".format(layers[0], mf_dim, num_train_neg, num_test_neg, str(time()))
+	model = "NEUMF_Enhanced_{:02d}node_{:02d}fac_{:02d}neg_{}topK_{}".format(layers[0], mf_dim, num_train_neg, num_test_neg, str(time()))
 	# Create the Estimator
 	imp_neuMF_model = tf.estimator.Estimator(
-	  model_fn=get_neuMF_model, model_dir="/Models/imp_neuMF_upgraded_model/"+model, params=params)
+	  model_fn=get_neuMF_model, model_dir="/Models/new/imp_neuMF_upgraded_model/"+model, params=params)
 
 	# Set up logging for predictions
 	# Log the values in the "Softmax" tensor with label "probabilities"
@@ -259,7 +259,7 @@ def main(unused_argv):
 	logging_hook = tf.train.LoggingTensorHook(
 	  tensors=tensors_to_log, every_n_iter=50)
 
-	feature_eval, user_eval, item_eval, labels_eval = get_test_negative_instances(train,testRatings, feature_arr, num_test_neg, seed)
+	feature_eval, user_eval, item_eval, labels_eval = get_test_negative_instances_ver2(train,testRatings, feature_arr, num_test_neg, seed)
 	print(item_eval)
 	eval_input_fn = tf.estimator.inputs.numpy_input_fn(
 		x={
@@ -268,7 +268,7 @@ def main(unused_argv):
 		"feature_input": feature_eval
 		},
 		y=labels_eval,
-		batch_size=num_test_neg+1,
+		batch_size=num_test_neg+4,
 		num_epochs=1,
 		shuffle=False)
 
