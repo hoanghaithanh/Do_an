@@ -202,7 +202,7 @@ def main(unused_argv):
 	}
 	model = "MF{:02d}fac_{:02d}neg_{}topK_{}".format(mf_dim, num_train_neg, num_test_neg, str(time()))
 	# Create the Estimator
-	imp_neuMF_model = tf.estimator.Estimator(
+	imp_MF_model = tf.estimator.Estimator(
 	  model_fn=get_MF_model, model_dir="/Models/new/imp_MF_upgraded_model/"+model, params=params)
 
 	# Set up logging for predictions
@@ -239,13 +239,13 @@ def main(unused_argv):
 			num_epochs=1,
 			shuffle=True)
 
-		imp_neuMF_model.train(
+		imp_MF_model.train(
 			input_fn=train_input_fn,
 		  	steps=40000,
 			hooks=[logging_hook])
 		t2 = time()
 		print("Finished training model epoch {} in {:.2f} second".format(i,t2-t1))
-		eval_results = imp_neuMF_model.evaluate(input_fn=eval_input_fn)
+		eval_results = imp_MF_model.evaluate(input_fn=eval_input_fn)
 		print("Finished testing model in {:.2f} second".format(time()-t2))
 		print(eval_results)
 
