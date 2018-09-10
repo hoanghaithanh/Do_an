@@ -19,10 +19,33 @@ class Dataset(object):
         self.trainMatrix = self.load_rating_file_as_matrix(path + ".train.rating")
         self.testRatings = self.load_rating_file_as_list(path + ".test.rating")
         # self.testNegatives = self.load_negative_file(path + ".test.negative")
+        
         # assert len(self.testRatings) == len(self.testNegatives)
         
         self.num_users, self.num_items = self.trainMatrix.shape
-        
+        self.feature_arr = self.load_user_input_as_array(path+".user.ident")
+        #self.feature_list = self.load_user_input_as_array(path+".user.ident")
+
+    def load_user_input_as_array(self, filename):
+        user_arr = np.zeros(shape=(self.num_users,19),dtype=np.float32)
+        fin = open(filename, "r")
+        for line in fin:
+            tokens = line.split()
+            for k in range(1,20):
+                user_arr[int(tokens[0]),k-1] = float(tokens[k])
+        return user_arr
+
+    def load_user_input_as_list(self, filename):
+        user_list = []
+        for line in fin:
+            tokens = line.split()
+            user = []
+            for k in range(19):
+                user.append(float(tokens[k]))
+            user_list.append(user)
+        return user_list
+
+
     def load_rating_file_as_list(self, filename):
         ratingList = []
         with open(filename, "r") as f:
@@ -53,7 +76,7 @@ class Dataset(object):
         The first line of .rating file is: num_users\t num_items
         '''
         # Get number of users and items
-        num_users, num_items = 0, 0
+        num_users, num_items = 0, 26743
         with open(filename, "r") as f:
             line = f.readline()
             while line != None and line != "":
@@ -68,8 +91,7 @@ class Dataset(object):
             line = f.readline()
             while line != None and line != "":
                 arr = line.split()
-                user, item, rating = int(arr[0]), int(arr[1]), float(arr[2])
-                if (rating > 0):
-                    mat[user, item] = 1.0
+                user, item = int(arr[0]), int(arr[1])
+                mat[user, item] = 1.0
                 line = f.readline()    
         return mat

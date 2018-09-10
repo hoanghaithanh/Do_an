@@ -1,22 +1,23 @@
-2013#Refactor code
-
 import tensorflow as tf
 import numpy as np
 from Dataset import Dataset
 import argparse
+import sample_plus
 from time import time
 def parse_args():
-	parser = argparse.ArgumentParser(description="Run NeuMF.")
-	parser.add_argument('--path', nargs='?', default='../../Data/ml-20m/',
+	parser = argparse.ArgumentParser(description="Run MLP_PLUS.")
+	parser.add_argument('--dir_path', nargs='?', default='/',
+						help='Model save path')
+	parser.add_argument('--path', nargs='?', default='../../../Data/ml-20m/',
 						help='Input data path.')
 	parser.add_argument('--dataset', nargs='?', default='ml-2m',
 						help='Choose a dataset.')
-	parser.add_argument('--epochs', type=int, default=20,
+	parser.add_argument('--epochs', type=int, default=50,
 						help='Number of epochs.')
-	parser.add_argument('--batch_size', type=int, default=256,
+	parser.add_argument('--batch_size', type=int, default=128,
 						help='Batch size.')
-	parser.add_argument('--layers', nargs='?', default='[72,36,18,9]',
-						help="MLP layers. Note that the first layer is the concatenation of user and item embeddings. So layers[0]/2 is the embedding size.")			
+	parser.add_argument('--layers', nargs='?', default='[256,128,64,32]',
+						help="MLP layers. Note that the first layer is the concatenation of user and item embeddings. So layers[0]/2 is the embedding size.")					
 	parser.add_argument('--reg_layers', nargs='?', default='[0.01,0.01,0.01,0.01]',
 						help="Regularization for each MLP layer. reg_layers[0] is the regularization for embeddings.")
 	parser.add_argument('--lr', type=float, default=0.001,
@@ -34,7 +35,7 @@ def parse_args():
 	return parser.parse_args()
 
 
-def get_MLP_model(features, labels, mode, params):
+def get_MLP_PLUS_model(features, labels, mode, params):
 
 	num_users = params['num_users']
 	num_items = params['num_items']
@@ -49,27 +50,26 @@ def get_MLP_model(features, labels, mode, params):
 	#Input layers
 	user_input = features['user_input']
 	item_input = features['item_input']
+	feature_input = features['feature_input']
 
-	#############              MF parts              #############
+	#############              MLP parts             #############
 
-	#Latent layers
-		#MLP Laten layers
-	MLP_user_input_variable = tf.Variable(tf.random_normal([num_users, int(layers[0]/2)], stddev = 0.01))
+	#MLP Laten layers
+	MLP_user_input_variable = tf.Variable(tf.random_normal([num_users, int(layers[0]/3)], stddev = 0.01))
 	MLP_user_embeded = tf.nn.embedding_lookup(MLP_user_input_variable, user_input)
-	MLP_item_input_variable = tf.Variable(tf.random_normal([num_items, int(layers[0]/2)], stddev = 0.01))
+	MLP_item_input_variable = tf.Variable(tf.random_normal([num_items, int(layers[0]/3)], stddev = 0.01))
 	MLP_item_embeded = tf.nn.embedding_lookup(MLP_item_input_variable, item_input)
 
 	#Dense feature
-	# MLP_feature_dense = tf.layers.Dense(units=layers[0]/3, name="user_dense", dtype=tf.float32)(feature_input)
+	MLP_feature_dense = tf.layers.Dense(units=int(layers[0]/3), name="user_dense", dtype=tf.float32)(feature_input)
 
 	#MLP prediction
-	MLP_predict_vector = tf.concat([tf.layers.flatten(MLP_user_embeded), tf.layers.flatten(MLP_item_embeded)], 1)
+	MLP_predict_vector = tf.concat([tf.layers.flatten(MLP_user_embeded), tf.layers.flatten(MLP_item_embeded), tf.layers.flatten(MLP_feature_dense)], 1)
 
 	#MLP layers
 	for idx in range(1, num_layer):
 		MLP_layer = tf.layers.Dense(layers[idx], kernel_regularizer= tf.contrib.layers.l2_regularizer(reg_layers[idx]), activation=tf.nn.relu, name='layer%d'%idx)
 		MLP_predict_vector = MLP_layer(MLP_predict_vector)
-
 
 	logits = tf.layers.Dense(units=1, name="prediction", activation=tf.sigmoid)(MLP_predict_vector)
 
@@ -107,89 +107,14 @@ def get_MLP_model(features, labels, mode, params):
 	# Add evaluation metrics (for EVAL mode)
 	eval_metric_ops = {
 	"recall": tf.metrics.recall_at_k(
-		labels=tranformed_label, predictions=tf.transpose(logits),k=top_Number),
-	"precision": tf.metrics.precision_at_k(
-	 	labels=tranformed_label, predictions=tf.transpose(logits),k=top_Number)
+		labels=tranformed_label, predictions=tf.transpose(logits),k=top_Number)
 	}
 	return tf.estimator.EstimatorSpec(
 		mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
 
-def get_label(rating):
-	label = np.zeros(9)
-	label[int((rating-1)*2)-1] = 1
-	return label
-
-def get_train_instances(train, num_train_neg):
-	user_input, item_input, labels = [],[],[]
-	num_users = train.shape[0]
-	num_items = train.shape[1]
-	for (u,i) in train.keys():
-		user_input.append(u)
-		item_input.append(i)
-		labels.append(1.0)
-		for k in range(num_train_neg):
-			j = np.random.randint(num_items)
-			while (u,j) in train.keys():
-				j = np.random.randint(num_items)
-			user_input.append(u)
-			item_input.append(j)
-			labels.append(0)
-	user_arr = np.array(user_input).reshape(-1,1)
-	item_arr = np.array(item_input).reshape(-1,1)
-	labels_arr = np.array(labels).reshape(-1,1).astype('float32')
-
-	return user_arr, item_arr, labels_arr
-
-def get_test_negative_instances(train, test, num_test_neg, seed):
-	np.random.seed(seed)
-	user_input, item_input, labels = [],[],[]
-	num_items = train.shape[1]
-	for entry in test:
-		u = entry[0]
-		i = entry[1]
-		user_input.append(u)
-		item_input.append(i)
-		labels.append(1.0)
-		for k in range(num_test_neg):
-			j = np.random.randint(num_items)
-			while (u,j) in train.keys():
-				j = np.random.randint(num_items)
-			user_input.append(u)
-			item_input.append(j)
-			labels.append(0)
-	user_arr = np.array(user_input).reshape(-1,1)
-	item_arr = np.array(item_input).reshape(-1,1)
-	labels_arr = np.array(labels).reshape(-1,1).astype('float32')
-	return user_arr, item_arr, labels_arr
-
-def get_test_negative_instances_ver2(train, test, num_test_neg, seed):
-	np.random.seed(seed)
-	user_input, item_input, labels = [],[],[]
-	num_items = train.shape[1]
-	current_user = -1
-	for entry in test:
-		u = entry[0]
-		i = entry[1]
-		if u != current_user:
-			for k in range(num_test_neg):
-				j = np.random.randint(num_items)
-				while (u,j) in train.keys():
-					j = np.random.randint(num_items)
-				user_input.append(u)
-				item_input.append(j)
-				labels.append(0)
-			current_user += 1
-
-		user_input.append(u)
-		item_input.append(i)
-		labels.append(1.0)
-	user_arr = np.array(user_input).reshape(-1,1)
-	item_arr = np.array(item_input).reshape(-1,1)
-	labels_arr = np.array(labels).reshape(-1,1).astype('float32')
-	return user_arr, item_arr, labels_arr
-
 def main(unused_argv):
 	args = parse_args()
+	model_save = args.dir_path
 	num_epochs = args.epochs
 	batch_size = args.batch_size
 	layers = eval(args.layers)
@@ -199,7 +124,7 @@ def main(unused_argv):
 	num_train_neg = args.num_train_neg
 	num_test_neg = args.num_test_neg
 	dataset = Dataset(args.path + args.dataset)
-	train, testRatings = dataset.trainMatrix, dataset.testRatings
+	feature_arr, train, testRatings = dataset.feature_arr, dataset.trainMatrix, dataset.testRatings
 	num_users, num_items = train.shape
 	seed = args.seed
 
@@ -213,10 +138,10 @@ def main(unused_argv):
 	'top_number': args.top_number,
 	'num_test_neg': num_test_neg
 	}
-	model = "MLP_{:02d}node_{:02d}neg_{}topK_{}".format(layers[0], num_train_neg, num_test_neg, str(time()))
+	model = "MLP_PLUS_{:02d}node_{:02d}trainneg_{:02d}testneg_{:02d}topK_{}dataset_{}".format(layers[0], num_train_neg, num_test_neg, args.top_number, args.dataset, str(time()))
 	# Create the Estimator
-	imp_MLP_model = tf.estimator.Estimator(
-	  model_fn=get_MLP_model, model_dir="/Models/new/imp_MLP_model/"+model, params=params)
+	mlp_plus_model = tf.estimator.Estimator(
+	  model_fn=get_MLP_PLUS_model, model_dir=model_save+"Models/new/MLP_PLUS/"+model, params=params)
 
 	# Set up logging for predictions
 	# Log the values in the "Softmax" tensor with label "probabilities"
@@ -224,15 +149,13 @@ def main(unused_argv):
 	logging_hook = tf.train.LoggingTensorHook(
 	  tensors=tensors_to_log, every_n_iter=50)
 
-	# Evaluate the model and print results
-	loss, recall, precision = [], [], []
-
-	user_eval, item_eval, labels_eval = get_test_negative_instances_ver2(train,testRatings, num_test_neg, seed)
+	feature_eval, user_eval, item_eval, labels_eval = sample_plus.get_test_negative_instances_ver2(train,testRatings, feature_arr, num_test_neg, seed)
 	print(item_eval)
 	eval_input_fn = tf.estimator.inputs.numpy_input_fn(
 		x={
 		"user_input": user_eval,
-		"item_input": item_eval
+		"item_input": item_eval,
+		"feature_input": feature_eval
 		},
 		y=labels_eval,
 		batch_size=num_test_neg+4,
@@ -241,24 +164,25 @@ def main(unused_argv):
 
 	for i in range(num_epochs):
 		t1 = time()
-		user_input, item_input, labels = get_train_instances(train, num_train_neg)
+		feature_input, user_input, item_input, labels = sample_plus.get_train_instances(train, feature_arr, num_train_neg)
 		train_input_fn = tf.estimator.inputs.numpy_input_fn(
 			x={
 			"user_input": user_input,
-			"item_input": item_input
+			"item_input": item_input,
+			"feature_input": feature_input
 			},
 			y=labels,
 			batch_size=batch_size,
 			num_epochs=1,
 			shuffle=True)
 
-		imp_MLP_model.train(
+		mlp_plus_model.train(
 			input_fn=train_input_fn,
 		  	steps=40000,
 			hooks=[logging_hook])
 		t2 = time()
 		print("Finished training model epoch {} in {:.2f} second".format(i,t2-t1))
-		eval_results = imp_MLP_model.evaluate(input_fn=eval_input_fn)
+		eval_results = mlp_plus_model.evaluate(input_fn=eval_input_fn)
 		print("Finished testing model in {:.2f} second".format(time()-t2))
 		print(eval_results)
 
