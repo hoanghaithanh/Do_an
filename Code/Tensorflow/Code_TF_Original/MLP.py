@@ -1,9 +1,17 @@
-import tensorflow as tf
-import numpy as np
-from Dataset import Dataset
-import argparse
-import sample
-from time import time
+if __name__ == '__main__':
+	import tensorflow as tf
+	import numpy as np
+	from Dataset import Dataset
+	import sample
+	import argparse
+	from time import time
+else:
+	import tensorflow as tf
+	import numpy as np
+	from .Dataset import Dataset
+	from . import sample
+	import argparse
+	from time import time
 def parse_args():
 	parser = argparse.ArgumentParser(description="Run MLP.")
 	parser.add_argument('--dir_path', nargs='?', default='/',

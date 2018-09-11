@@ -3,3 +3,5 @@ Data_old/
 Models/
 Code/Code_pure_TF_Added_FT/__pycache__/*
 *.tmp*
+*pyc
+*__pychache__*
