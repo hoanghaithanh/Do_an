@@ -161,7 +161,7 @@ def main(unused_argv):
 	'top_number': args.top_number,
 	'num_test_neg': num_test_neg
 	}
-	model = "NEUMF_Enhanced_{:02d}node_{:02d}fac_{:02d}trainneg_{:02d}testneg_{:02d}topK_{}dataset_{}".format(layers[0], mf_dim, num_train_neg, num_test_neg, args.top_number, args.dataset, str(time()))
+	model = "NEUMF_PLUS_{:02d}node_{:02d}fac_{:02d}trainneg_{:02d}testneg_{:02d}topK_{}dataset_{}".format(layers[0], mf_dim, num_train_neg, num_test_neg, args.top_number, args.dataset, str(time()))
 	# Create the Estimator
 	imp_neuMF_plus_model = tf.estimator.Estimator(
 	  model_fn=get_neuMF_PLUS_model, model_dir=model_save+"Models/new/NeuMF_PLUS/"+model, params=params)
